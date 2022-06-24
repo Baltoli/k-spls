@@ -1,0 +1,8 @@
+fn main() {
+  test(6)
+}
+
+fn test(x : int) {
+  let y = 10;
+  x + y
+}
