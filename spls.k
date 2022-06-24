@@ -30,7 +30,7 @@ module SPLS-SYNTAX
                     | Expr ">" Expr [non-assoc, strict]
                     | Expr "<=" Expr [non-assoc, strict]
                     | Expr "<" Expr [non-assoc, strict]
-                    > "let" Id "=" Expr [strict(2)]
+                    > VarDecl
                     | "let" "mut" Id "=" Expr [strict(2)]
                     | "if" "(" Expr ")" Expr "else" Expr [strict(1)]
                     | "while" "(" Expr ")" Expr
@@ -44,8 +44,11 @@ module SPLS-SYNTAX
   syntax Block    ::= "{" Exprs "}"
 
   syntax FunDecl  ::= "fn" Id "(" Params ")" Block
+  syntax VarDecl  ::= "let" Id "=" Expr [strict(2)]
 
   syntax Decl     ::= FunDecl
+                    | VarDecl ";"
+
   syntax Decls    ::= NeList{Decl, ""} [prefer]
 
   syntax Pgm      ::= Decls
@@ -67,6 +70,7 @@ module SPLS-CONFIGURATION
     <fstack> .List </fstack>
     <stack> .List </stack>
     <env> .Map </env>
+    <globals> .Map </globals>
     <functions>
       <function multiplicity="*" type="Map">
         <function-id> dummy </function-id>
@@ -132,6 +136,11 @@ module SPLS
       ...
     </functions>
 
+  rule
+    <k> let X = V ; => . ...</k>
+    <globals> GS => GS [ X <- V ] </globals>
+    requires notBool inScope(X)
+
   syntax KItem ::= bind(args: Args, names: List)
                  | bindArg(arg: Expr, name: Id) [strict(1)]
 
@@ -156,8 +165,10 @@ module SPLS
   syntax Bool ::= inScope(Id) [function]
   rule [[ inScope(X) => true ]]
     <env> E </env>
+    <globals> GS </globals>
     requires X in_keys(E)
       orBool mut(X) in_keys(E)
+      orBool X in_keys(GS)
   rule inScope(_) => false [owise]
 
   rule
@@ -204,6 +215,10 @@ module SPLS
   rule
     <k> X:Id => V ...</k>
     <env> mut(X) |-> V ...</env>
+
+  rule
+    <k> X:Id => V ...</k>
+    <globals> X |-> V ...</globals>
 
   rule
     <k> (I:Int ~> exit()) => . </k>

@@ -1,5 +1,7 @@
+let global = 21;
+
 fn main() {
-  test(6)
+  test(global)
 }
 
 fn test(x : int) {
