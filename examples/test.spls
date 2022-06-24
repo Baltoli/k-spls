@@ -1,19 +1,7 @@
-let global = 21;
-
-fn main() {
-  test(global)
+fn sum(n : int, a : int) {
+  return n + a
 }
 
-fn test(x : int) {
-  let mut y = 10;
-  while(y >= 0) {
-    y = y - 1;
-
-    if (y == 4) {
-      return y
-    } else {
-      ()
-    }
-  };
-  x + y
+fn main() {
+  sum(10)
 }

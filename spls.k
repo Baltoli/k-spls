@@ -61,6 +61,9 @@ module SPLS-CONFIGURATION
 
   syntax Id       ::= "dummy" [token]
                     | "main"  [token]
+                    | "sum"  [token]
+                    | "n"  [token]
+                    | "nc"  [token]
 
   syntax KItem ::= exit()
 
@@ -148,7 +151,7 @@ module SPLS
   rule bind(E , AS:Args, ListItem(X) XS) => bindArg(E, X) ~> bind(AS, XS)
 
   rule
-    <k> bindArg(V, X) => . ...</k>
+    <k> bindArg(V:Value, X) => . ...</k>
     <env> E => E [ X <- V ] </env>
 
   rule
@@ -223,10 +226,6 @@ module SPLS
   rule
     <k> (I:Int ~> exit()) => . </k>
     <exit-code> _ => I </exit-code>
-
-  syntax Foo ::= foo() | bar() | baz()
-  rule foo() => bar()
-  rule bar() => baz()
 
   syntax Bool ::= isKResult(Expr) [symbol, function]
   rule isKResult(_::Value) => true
