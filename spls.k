@@ -31,8 +31,11 @@ module SPLS-SYNTAX
                     | Expr "<=" Expr [non-assoc, strict]
                     | Expr "<" Expr [non-assoc, strict]
                     > "let" Id "=" Expr [strict(2)]
+                    | "let" "mut" Id "=" Expr [strict(2)]
                     | "if" "(" Expr ")" Expr "else" Expr [strict(1)]
                     | "while" "(" Expr ")" Expr
+                    | Id "=" Expr [strict(2)]
+                    | "return" Expr [strict]
                     > Block
                     > "(" Expr ")" [bracket]
 
@@ -104,7 +107,7 @@ module SPLS
   rule if ( true ) E1 else _ => E1
   rule if ( false ) _ else E2 => E2
 
-  rule while ( C ) E => if ( C ) E else ()
+  rule while ( C ) E => if ( C ) { E ; while ( C ) E } else ()
 
   syntax List ::= paramNames(Params) [function]
                 | paramTypes(Params) [function]
@@ -148,10 +151,29 @@ module SPLS
     <function-params> PS </function-params>
     <function-body> Body </function-body>
 
+  syntax Expr ::= mut(Id)
+
+  syntax Bool ::= inScope(Id) [function]
+  rule [[ inScope(X) => true ]]
+    <env> E </env>
+    requires X in_keys(E)
+      orBool mut(X) in_keys(E)
+  rule inScope(_) => false [owise]
+
   rule
     <k> let X = V => V ...</k>
     <env> E => E [ X <- V ] </env>
-    requires notBool X in_keys(E)
+    requires notBool inScope(X)
+
+  rule
+    <k> let mut X = V => V ...</k>
+    <env> E => E [ mut(X) <- V ] </env>
+    requires notBool inScope(X)
+
+  rule
+    <k> X = V => V ...</k>
+    <env> E => E [ mut(X) <- V ] </env>
+    requires mut(X) in_keys(E)
 
   syntax K ::= expand(Exprs) [function]
   rule expand(.Exprs) => .K
@@ -166,12 +188,22 @@ module SPLS
     <env> _ => E </env>
 
   rule
+    <k> (return V ~> _) => V ~> F </k>
+    <fstack> ListItem(frame(F)) => .List ...</fstack>
+    <stack> ListItem(E) => .List ...</stack>
+    <env> _ => E </env>
+
+  rule
     <k> _:Value => .K ...</k>
     [owise]
 
   rule
     <k> X:Id => V ...</k>
     <env> X |-> V ...</env>
+
+  rule
+    <k> X:Id => V ...</k>
+    <env> mut(X) |-> V ...</env>
 
   rule
     <k> (I:Int ~> exit()) => . </k>
