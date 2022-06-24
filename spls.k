@@ -172,17 +172,17 @@ module SPLS
   rule inScope(_) => false [owise]
 
   rule
-    <k> let X = V => V ...</k>
+    <k> let X = V:Value => V ...</k>
     <env> E => E [ X <- V ] </env>
     requires notBool inScope(X)
 
   rule
-    <k> let mut X = V => V ...</k>
+    <k> let mut X = V:Value => V ...</k>
     <env> E => E [ mut(X) <- V ] </env>
     requires notBool inScope(X)
 
   rule
-    <k> X = V => V ...</k>
+    <k> X = V:Value => V ...</k>
     <env> E => E [ mut(X) <- V ] </env>
     requires mut(X) in_keys(E)
 
@@ -199,7 +199,7 @@ module SPLS
     <env> _ => E </env>
 
   rule
-    <k> (return V ~> _) => V ~> F </k>
+    <k> (return V:Value ~> _) => V ~> F </k>
     <fstack> ListItem(frame(F)) => .List ...</fstack>
     <stack> ListItem(E) => .List ...</stack>
     <env> _ => E </env>
@@ -223,6 +223,10 @@ module SPLS
   rule
     <k> (I:Int ~> exit()) => . </k>
     <exit-code> _ => I </exit-code>
+
+  syntax Foo ::= foo() | bar() | baz()
+  rule foo() => bar()
+  rule bar() => baz()
 
   syntax Bool ::= isKResult(Expr) [symbol, function]
   rule isKResult(_::Value) => true

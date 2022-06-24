@@ -5,7 +5,7 @@ fn main() {
 }
 
 fn test(x : int) {
-  let mut y = 3;
+  let mut y = 10;
   while(y >= 0) {
     y = y - 1;
 
