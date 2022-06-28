@@ -18,7 +18,7 @@ module SPLS-SYNTAX
 
   syntax Expr     ::= Value
                     | Id
-                    | Expr "(" Args ")"
+                    | Id "(" Args ")"
                     | "-" Expr [non-assoc]
                     > Expr "*" Expr [left, strict]
                     | Expr "/" Expr [left, strict]
@@ -31,7 +31,6 @@ module SPLS-SYNTAX
                     | Expr "<=" Expr [non-assoc, strict]
                     | Expr "<" Expr [non-assoc, strict]
                     > VarDecl
-                    | "let" "mut" Id "=" Expr [strict(2)]
                     | "if" "(" Expr ")" Expr "else" Expr [strict(1)]
                     | "while" "(" Expr ")" Expr
                     | Id "=" Expr [strict(2)]
@@ -163,14 +162,11 @@ module SPLS
     <function-params> PS </function-params>
     <function-body> Body </function-body>
 
-  syntax Expr ::= mut(Id)
-
   syntax Bool ::= inScope(Id) [function]
   rule [[ inScope(X) => true ]]
     <env> E </env>
     <globals> GS </globals>
     requires X in_keys(E)
-      orBool mut(X) in_keys(E)
       orBool X in_keys(GS)
   rule inScope(_) => false [owise]
 
@@ -180,14 +176,14 @@ module SPLS
     requires notBool inScope(X)
 
   rule
-    <k> let mut X = V:Value => V ...</k>
-    <env> E => E [ mut(X) <- V ] </env>
-    requires notBool inScope(X)
+    <k> X = V:Value => V ...</k>
+    <env> E => E [ X <- V ] </env>
+    requires X in_keys(E)
 
   rule
     <k> X = V:Value => V ...</k>
-    <env> E => E [ mut(X) <- V ] </env>
-    requires mut(X) in_keys(E)
+    <globals> G => G [ X <- V ] </globals>
+    requires X in_keys(G)
 
   syntax K ::= expand(Exprs) [function]
   rule expand(.Exprs) => .K
@@ -214,10 +210,6 @@ module SPLS
   rule
     <k> X:Id => V ...</k>
     <env> X |-> V ...</env>
-
-  rule
-    <k> X:Id => V ...</k>
-    <env> mut(X) |-> V ...</env>
 
   rule
     <k> X:Id => V ...</k>

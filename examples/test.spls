@@ -1,7 +1,13 @@
+let x = 2;
+
 fn sum(n : int, a : int) {
-  return n + a
+  x = x + 3;
+  return n + a + x
 }
 
 fn main() {
-  sum(10)
+  let y = sum(x, 1);
+  x = 1;
+  let z = sum(x, 0);
+  y + z
 }
