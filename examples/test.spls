@@ -1,13 +1,17 @@
-let x = 2;
-
-fn sum(n : int, a : int) {
-  x = x + 3;
-  return n + a + x
+fn transfer(from: int, to: int, amount: int) {
+  #send(from, -amount);
+  #send(to, amount)
 }
 
 fn main() {
-  let y = sum(x, 1);
-  x = 1;
-  let z = sum(x, 0);
-  y + z
+  if (#balance(1) >= 100) {
+    if(#balance(2) >= 0) {
+      transfer(1, 2, 100)
+    } else {
+      ()
+    }
+  } else {
+    ()
+  };
+  #balance(1) + #balance(2)
 }

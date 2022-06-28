@@ -19,7 +19,8 @@ module SPLS-SYNTAX
   syntax Expr     ::= Value
                     | Id
                     | Id "(" Args ")"
-                    | "-" Expr [non-assoc]
+                    | "-" Expr [non-assoc, strict]
+                    | "#halt"
                     > Expr "*" Expr [left, strict]
                     | Expr "/" Expr [left, strict]
                     > Expr "+" Expr [left, strict]
@@ -38,12 +39,15 @@ module SPLS-SYNTAX
                     > Block
                     > "(" Expr ")" [bracket]
 
+  syntax Expr     ::= #balance(Expr: Int) [strict]
+                    | #send(Expr, Expr) [strict]
+
   syntax Exprs    ::= NeList{Expr, ";"}
 
   syntax Block    ::= "{" Exprs "}"
 
   syntax FunDecl  ::= "fn" Id "(" Params ")" Block
-  syntax VarDecl  ::= "let" Id "=" Expr [strict(2)]
+  syntax VarDecl  ::= "let" Id "=" Expr [strict(2), prefer]
 
   syntax Decl     ::= FunDecl
                     | VarDecl ";"
@@ -60,19 +64,22 @@ module SPLS-CONFIGURATION
 
   syntax Id       ::= "dummy" [token]
                     | "main"  [token]
-                    | "sum"  [token]
-                    | "n"  [token]
-                    | "nc"  [token]
+                    | "transfer"  [token]
+                    | "from"  [token]
+                    | "to"  [token]
+                    | "amount"  [token]
 
   syntax KItem ::= exit()
-
+  
   configuration
     <k> $PGM:Pgm ~> main(.Args) ~> exit() </k>
     <exit-code> 0 </exit-code>
     <fstack> .List </fstack>
     <stack> .List </stack>
     <env> .Map </env>
+    <args> .Map </args>
     <globals> .Map </globals>
+    <balances> .Map </balances>
     <functions>
       <function multiplicity="*" type="Map">
         <function-id> dummy </function-id>
@@ -87,6 +94,7 @@ module SPLS
   imports SPLS-CONFIGURATION
   imports INT
   imports BOOL
+  imports MAP
 
   syntax KItem ::= frame(K)
 
@@ -125,6 +133,31 @@ module SPLS
   rule paramTypes(_ : T , PS) => ListItem(T) paramTypes(PS)
 
   rule
+    <k> #balance(Addr) => BM [ Addr ] ...</k>
+    <balances> BM </balances>
+    requires Addr in_keys(BM)
+  rule #balance(_) => 0 [owise]
+
+  syntax KItem ::= #setBalance(addr: Int, balance: Int)
+  rule
+    <k> #setBalance(Addr, Balance) => Balance ...</k>
+    <balances> BM => BM [ Addr <- Balance ] </balances>
+
+  rule #send(0, _) => 0
+
+  rule
+    <k>
+      #send(Addr:Int, Amount) => #setBalance(Addr, maxInt(B +Int Amount, 0))
+      ...
+    </k>
+    <balances> Addr |-> B ...</balances>
+    requires Addr =/=Int 0
+
+  rule #send(Addr:Int, Amount) => #setBalance(Addr, maxInt(Amount, 0))
+    [owise]
+    
+
+  rule
     <k> fn X (PS) Body => . ...</k>
     <functions>
       (.Bag =>
@@ -146,18 +179,22 @@ module SPLS
   syntax KItem ::= bind(args: Args, names: List)
                  | bindArg(arg: Expr, name: Id) [strict(1)]
 
-  rule bind(.Args, .List) => .K
+  rule
+    <k> bind(.Args, .List) => . ...</k>
+    <args> AS => .Map </args>
+    <env> _ => AS </env>
+
   rule bind(E , AS:Args, ListItem(X) XS) => bindArg(E, X) ~> bind(AS, XS)
 
   rule
     <k> bindArg(V:Value, X) => . ...</k>
-    <env> E => E [ X <- V ] </env>
+    <args> E => E [ X <- V ] </args>
 
   rule
     <k> (X (AS) ~> Rest) => bind(AS, PS) ~> Body </k>
     <fstack> .List => ListItem(frame(Rest)) ...</fstack>
     <stack> .List => ListItem(E) ...</stack>
-    <env> E => .Map </env>
+    <env> E </env>
     <function-id> X </function-id>
     <function-params> PS </function-params>
     <function-body> Body </function-body>

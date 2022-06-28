@@ -5,10 +5,12 @@ module SPLS-SPEC
 
   claim
   <k>
-    fn sum ( n : int , nc : int , .Params ) { return n + nc ; .Exprs }  fn main ( .Params ) { sum ( N:Int, A:Int , .Args ) ; .Exprs }  .Decls ~> main(.Args) ~> exit() => .K
+    fn transfer ( from : int , to : int , amount : int , .Params ) { #send ( from , - amount ) ; #send ( to , amount ) ; .Exprs }  fn main ( .Params ) { if ( #balance ( 1 ) >= 100 ) { if ( #balance ( 2 ) >= 0 ) { transfer ( 1 , 2 , 100 , .Args ) ; .Exprs } else { ( ) ; .Exprs } ; .Exprs } else { ( ) ; .Exprs } ; #balance ( 1 ) + #balance ( 2 ) ; .Exprs }  .Decls
+    ~> main ( .Args ) ~> exit ( )
+    => .
   </k>
   <exit-code>
-    _ => N
+    _ => B1 +Int B2
   </exit-code>
   <fstack>
     .List
@@ -19,12 +21,20 @@ module SPLS-SPEC
   <env>
     .Map
   </env>
+  <args>
+    _ => ?_
+  </args>
   <globals>
     .Map
   </globals>
   <functions>
     _ => ?_
   </functions>
-  requires A ==Int 0
+  <balances>
+    1 |-> (B1 => ?_)
+    2 |-> (B2 => ?_)
+  </balances>
+  /* requires 1 =/=Int 2 andBool B1 >=Int 100 andBool B2 >=Int 0 */
+    /* andBool 1 =/=Int 0 andBool 2 =/=Int 0 */
 
 endmodule
