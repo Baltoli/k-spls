@@ -39,7 +39,7 @@ module SPLS-SYNTAX
                     > Block
                     > "(" Expr ")" [bracket]
 
-  syntax Expr     ::= #balance(Expr: Int) [strict]
+  syntax Expr     ::= #balance(Expr) [strict]
                     | #send(Expr, Expr) [strict]
 
   syntax Exprs    ::= NeList{Expr, ";"}
