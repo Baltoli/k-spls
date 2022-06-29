@@ -52,7 +52,7 @@ use later to specify parsing priorities:
                     | Expr "*" Expr [mul, strict, left]
                     | Expr "/" Expr [div, strict, left]
                     | Expr "+" Expr [add, strict, left]
-                    | Expr "-" Expr [dub, strict, left]
+                    | Expr "-" Expr [sub, strict, left]
 ```
 
 Boolean expressions are treated similarly:
@@ -71,7 +71,7 @@ to be resolved. We parse `let x = 2 + 2` as `let x = (2 + 2)` rather than `(let
 x = 2) + 2` by preferring the top-level `let` production:
 ```k
   syntax VarDecl  ::= "let" Id "=" Expr [let,    strict(2), prefer]
-  syntax Expr     ::= VarDecl           [decl]
+  syntax Expr     ::= VarDecl
                     | Id "=" Expr       [assign, strict(2)]
 ```
 
@@ -83,22 +83,39 @@ returns:
                     | "return" Expr                      [return, strict]
 ```
 
+Expressions can be sequenced with `;`, and a list of expressions makes up a
+block. Note the use of K's syntactic list feature here to deal with the
+boilerplate code of parsing separated lists. Blocks themselves are expressions
+as well:
+```k
+  syntax Exprs    ::= NeList{Expr, ";"}
+  syntax Block    ::= "{" Exprs "}"
+  syntax Expr     ::= Block [block]
+```
+
+Expressions can be parenthesized:
+```k
+  syntax Expr     ::= "(" Expr ")" [bracket]
+```
+
+The unique labels we gave to each kind of expression production can be used to
+assign their relative parsing priorities:
+```k
+  syntax priorities neg > mul div > add sub > eq neq gteq gt lteq lt
+```
+
 ```k
   syntax Param    ::= Id
   syntax Params   ::= List{Param, ","}
 
   syntax Args     ::= List{Expr, ","}
 
-                    > Block
-                    > "(" Expr ")" [bracket]
 
   syntax Expr     ::= #balance(Expr) [strict]
                     | #send(Expr, Expr) [strict]
                     | #halt()
 
-  syntax Exprs    ::= NeList{Expr, ";"}
 
-  syntax Block    ::= "{" Exprs "}"
 
   syntax FunDecl  ::= "fn" Id "(" Params ")" Block
 
