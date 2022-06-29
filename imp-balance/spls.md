@@ -1,53 +1,106 @@
+This file is a literate K definition for a simple imperative programming
+language. This language is strongly and dynamically typed, and does not have a
+distinction between statements and expressions.
+
+Several elements of its design are made for simplicity of code, rather than to
+produce a language that is maximally ergonomic to write.
+
+# Syntax
+
+We follow the K convention of defining an external _syntax_ module that
+specifies how user programs should be parsed. Note that this syntax will be
+extended in the main module when defining the rewrite system for the language;
+these syntax extensions are not accessible by users of the language.
+```k
 module SPLS-SYNTAX
   imports ID-SYNTAX
   imports UNSIGNED-INT-SYNTAX
   imports BOOL
+```
 
+The only values in the language are unit (`()`), arbitrarily-sized integers, and
+booleans:
+```k
   syntax Value    ::= "(" ")"
                     | Int
                     | Bool
+```
 
-  syntax Type     ::= "int"
-                    | "bool"
-                    | "unit"
+This language treats all syntax equivalently as expressions (i.e. everything
+will evaluate to a value eventually; there is no statement-expression
+distinction).
 
-  syntax Param    ::= Id ":" Type
+Expressions can be a value, a variable identifier, or a function call. The
+`Args` sort is defined later in terms of the `Expr` sort:
+```k
+  syntax Expr     ::= Value
+                    | Id
+                    | Id "(" Args ")"
+```
+
+We support the basic set of arithmetic operations over expressions (note that
+the language is dynamically typed; there is no static type checking that would
+prevent `true * 2`, for example).
+
+K's _attribute_ system is used on these productions to mark each one as being
+strict in its arguments (i.e. the child `Expr`s must be evaluated to a `Value`
+before this production appears at the top of the K cell), and to set the parsing
+associativity of each one. A unique label is given to each one, which we will
+use later to specify parsing priorities:
+```k
+  syntax Expr     ::= "-" Expr      [neg, strict, non-assoc]
+                    | Expr "*" Expr [mul, strict, left]
+                    | Expr "/" Expr [div, strict, left]
+                    | Expr "+" Expr [add, strict, left]
+                    | Expr "-" Expr [dub, strict, left]
+```
+
+Boolean expressions are treated similarly:
+```k
+  syntax Expr     ::= Expr "==" Expr [eq,   strict, non-assoc]
+                    | Expr "!=" Expr [neq,  strict, non-assoc]
+                    | Expr ">=" Expr [gteq, strict, non-assoc]
+                    | Expr ">"  Expr [gt,   strict, non-assoc]
+                    | Expr "<=" Expr [lteq, strict, non-assoc]
+                    | Expr "<"  Expr [lt,   strict, non-assoc]
+```
+
+Later, we want to allow global variable declarations that are separate from the
+expression grammar. The `prefer` attribute here allows for parsing ambiguities
+to be resolved. We parse `let x = 2 + 2` as `let x = (2 + 2)` rather than `(let
+x = 2) + 2` by preferring the top-level `let` production:
+```k
+  syntax VarDecl  ::= "let" Id "=" Expr [let,    strict(2), prefer]
+  syntax Expr     ::= VarDecl           [decl]
+                    | Id "=" Expr       [assign, strict(2)]
+```
+
+We support three basic control flow elements: if-else, while loops, and early
+returns:
+```k
+  syntax Expr     ::= "if" "(" Expr ")" Expr "else" Expr [if,     strict(1)]
+                    | "while" "(" Expr ")" Expr          [while]
+                    | "return" Expr                      [return, strict]
+```
+
+```k
+  syntax Param    ::= Id
   syntax Params   ::= List{Param, ","}
 
   syntax Args     ::= List{Expr, ","}
 
-  syntax Expr     ::= Value
-                    | Id
-                    | Id "(" Args ")"
-                    | "-" Expr [non-assoc, strict]
-                    | "#halt"
-                    > Expr "*" Expr [left, strict]
-                    | Expr "/" Expr [left, strict]
-                    > Expr "+" Expr [left, strict]
-                    | Expr "-" Expr [left, strict]
-                    > Expr "==" Expr [non-assoc, strict]
-                    | Expr "!=" Expr [non-assoc, strict]
-                    | Expr ">=" Expr [non-assoc, strict]
-                    | Expr ">" Expr [non-assoc, strict]
-                    | Expr "<=" Expr [non-assoc, strict]
-                    | Expr "<" Expr [non-assoc, strict]
-                    > VarDecl
-                    | "if" "(" Expr ")" Expr "else" Expr [strict(1)]
-                    | "while" "(" Expr ")" Expr
-                    | Id "=" Expr [strict(2)]
-                    | "return" Expr [strict]
                     > Block
                     > "(" Expr ")" [bracket]
 
   syntax Expr     ::= #balance(Expr) [strict]
                     | #send(Expr, Expr) [strict]
+                    | #halt()
 
   syntax Exprs    ::= NeList{Expr, ";"}
 
   syntax Block    ::= "{" Exprs "}"
 
   syntax FunDecl  ::= "fn" Id "(" Params ")" Block
-  syntax VarDecl  ::= "let" Id "=" Expr [strict(2), prefer]
 
   syntax Decl     ::= FunDecl
                     | VarDecl ";"
@@ -64,10 +117,6 @@ module SPLS-CONFIGURATION
 
   syntax Id       ::= "dummy" [token]
                     | "main"  [token]
-                    | "transfer"  [token]
-                    | "from"  [token]
-                    | "to"  [token]
-                    | "amount"  [token]
 
   syntax KItem ::= exit()
   
@@ -84,7 +133,6 @@ module SPLS-CONFIGURATION
       <function multiplicity="*" type="Map">
         <function-id> dummy </function-id>
         <function-params> .List </function-params>
-        <function-param-types> .List </function-param-types>
         <function-body> .K </function-body>
       </function>
     </functions>
@@ -124,13 +172,9 @@ module SPLS
   rule while ( C ) E => if ( C ) { E ; while ( C ) E } else ()
 
   syntax List ::= paramNames(Params) [function]
-                | paramTypes(Params) [function]
 
   rule paramNames(.Params) => .List
-  rule paramNames(X : _ , PS) => ListItem(X) paramNames(PS)
-
-  rule paramTypes(.Params) => .List
-  rule paramTypes(_ : T , PS) => ListItem(T) paramTypes(PS)
+  rule paramNames(X , PS) => ListItem(X) paramNames(PS)
 
   rule
     <k> #balance(Addr) => BM [ Addr ] ...</k>
@@ -164,7 +208,6 @@ module SPLS
         <function>
           <function-id> X </function-id>
           <function-params> paramNames(PS) </function-params>
-          <function-param-types> paramTypes(PS) </function-param-types>
           <function-body> Body </function-body>
         </function>
       )
@@ -260,3 +303,4 @@ module SPLS
   rule isKResult(_::Value) => true
   rule isKResult(_::Expr) => false [owise]
 endmodule
+```

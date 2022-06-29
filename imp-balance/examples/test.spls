@@ -1,4 +1,4 @@
-fn transfer(from: int, to: int, amount: int) {
+fn transfer(from, to, amount) {
   #send(from, -amount);
   #send(to, amount)
 }

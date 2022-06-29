@@ -2,7 +2,7 @@ fn f() {
   5
 }
 
-fn g(x: int) {
+fn g(x) {
   f() * x
 }
 

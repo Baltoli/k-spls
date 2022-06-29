@@ -5,7 +5,7 @@ module SPLS-SPEC
 
   claim
   <k>
-    fn transfer(from: int, to: int, amount: int) {
+    fn transfer(from, to, amount) {
       if(#balance(from) >= amount) {
         #send(from, -amount);
         #send(to, amount)
