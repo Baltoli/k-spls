@@ -88,13 +88,14 @@ slide-two: slides/two.k
 	  --backend llvm \
 	  --syntax-module TWO
 
+.PHONY: pcl
 pcl: pcl/pcl.k
 	$(KOMPILE) $(KOMPILE_FLAGS) $< \
 	  --output-definition $(SEMANTICS_DIR)/$@ \
 	  --backend llvm
 
 examples/%.imp.run:
-	$(KRUN) --definition $(SEMANTICS_DIR)/imp-llvm $(patsubst %.run,$@)
+	$(KRUN) --definition $(SEMANTICS_DIR)/imp-llvm $(patsubst %.run,%,$@)
 
 examples/%.pcl.run:
 	$(KRUN) --definition $(SEMANTICS_DIR)/pcl $(patsubst %.run,%,$@)

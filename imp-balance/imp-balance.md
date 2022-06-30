@@ -396,7 +396,7 @@ Accounts not in the balance table have `0` balance by default:
 The `#send` operation is exposed to user programs, and so is checked. The zero
 address is a sink, and so will accept any argument without checking:
 ```k
-  rule #send(0, A) => A
+  rule #send(0, A) => 0
 ```
 
 If an account has an existing balance, we set their balance to the adjusted
