@@ -14,9 +14,16 @@ INSTALL_INCLUDE ?= $(INSTALL_LIB)/include
 DEST_DIR	:= $(CURDIR)/$(BUILD_DIR)
 
 K_BIN		:= $(BUILD_DIR)$(INSTALL_LIB)/kframework/bin
-KOMPILE		:= $(K_BIN)/kompile
-KRUN		:= $(K_BIN)/krun
-KPROVE		:= $(K_BIN)/kprove
+
+ifeq ($(SYSTEM_K),)
+  KOMPILE	:= $(K_BIN)/kompile
+  KRUN		:= $(K_BIN)/krun
+  KPROVE	:= $(K_BIN)/kprove
+else
+  KOMPILE	:= kompile
+  KRUN		:= krun
+  KPROVE	:= kprove
+endif
 
 KOMPILE_FLAGS	:=
 
