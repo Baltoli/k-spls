@@ -104,69 +104,108 @@ assign their relative parsing priorities:
   syntax priorities neg > mul div > add sub > eq neq gteq gt lteq lt
 ```
 
+Function declarations and argument lists for calls make similar use of syntactic
+lists:
 ```k
   syntax Param    ::= Id
   syntax Params   ::= List{Param, ","}
-
-  syntax Args     ::= List{Expr, ","}
-
-
-  syntax Expr     ::= #balance(Expr) [strict]
-                    | #send(Expr, Expr) [strict]
-                    | #halt()
-
-
-
   syntax FunDecl  ::= "fn" Id "(" Params ")" Block
 
+  syntax Args     ::= List{Expr, ","}
+```
+
+The top-level program structure in this language is a sequence of declarations
+(either functions or variables):
+```k
   syntax Decl     ::= FunDecl
                     | VarDecl ";"
 
   syntax Decls    ::= NeList{Decl, ""} [prefer]
 
   syntax Pgm      ::= Decls
-endmodule
+```
 
+Finally, we extend the `Expr` sort with some special forms that we will use
+later to demonstrate proofs in K:
+```k
+  syntax Expr     ::= #balance(Expr)    [strict]
+                    | #send(Expr, Expr) [strict]
+                    | #halt()
+endmodule
+```
+
+# Configuration
+
+The configuration for this language contains the state required to represent a
+running program:
+* The current computation in the `<k>` cell
+* Call and environment stacks
+* An environment mapping names to values, and a set of global variable mappings
+* Account balances (an example of "outside world") interaction
+```k
 module SPLS-CONFIGURATION
   imports SPLS-SYNTAX
   imports LIST
   imports MAP
+```
 
+K parses in two different modes depending on whether the program is "standalone"
+input (e.g. being read from a file with `krun` etc.), or is part of a K
+definition. This is to avoid a parsing ambiguity between K variables and
+identifiers that happen to begin with an upper-case letter; we therefore need to
+pre-declare any identifier tokens that we write in the configuration:
+```k
   syntax Id       ::= "dummy" [token]
                     | "main"  [token]
 
   syntax KItem ::= exit()
-  
+```
+
+The `$PGM` variable is a placeholder used by the K toolchain to represent the
+program passed by `krun` etc. (e.g. the contents of a file, or the `-cPGM`
+command line flag). To give every program the same entry-point, we follow the
+user's program with a call to the `main` function:
+```k
   configuration
     <k> $PGM:Pgm ~> main(.Args) ~> exit() </k>
-    <exit-code> 0 </exit-code>
-    <fstack> .List </fstack>
-    <stack> .List </stack>
-    <env> .Map </env>
-    <args> .Map </args>
-    <globals> .Map </globals>
-    <balances> .Map </balances>
+    <exit-code> 0     </exit-code>
+    <fstack>    .List </fstack>
+    <stack>     .List </stack>
+    <env>       .Map  </env>
+    <args>      .Map  </args>
+    <globals>   .Map  </globals>
+    <balances>  .Map  </balances>
     <functions>
       <function multiplicity="*" type="Map">
-        <function-id> dummy </function-id>
+        <function-id>     dummy </function-id>
         <function-params> .List </function-params>
-        <function-body> .K </function-body>
+        <function-body>   .K    </function-body>
       </function>
     </functions>
 endmodule
+```
 
+# Semantics
+
+This module defines the run-time semantics of programs in our language by
+providing rewrite rules over the many-sorted grammar described above.
+```k
 module SPLS
   imports SPLS-CONFIGURATION
   imports INT
   imports BOOL
   imports MAP
+```
 
-  syntax KItem ::= frame(K)
+## Arithmetic and Boolean
 
-  rule D:Decl DS => D ~> DS
-  rule .Decls => .K
+Arithmetic and boolean rules are simple to write because K's strictness
+annotations ensure that we only ever have to rewrite over values. The symbols
+`-Int` etc. are function symbols in K, which means that they are evaluated
+immediately on being constructed, and cannot be pattern-matched on.
+```k
+  rule   - X => 0 -Int X
 
-  rule - X => 0 -Int X
   rule X + Y => X +Int Y
   rule X - Y => X -Int Y
   rule X * Y => X *Int Y
@@ -176,48 +215,74 @@ module SPLS
   rule I1 == I2 => I1 ==Int I2
 
   rule B1 != B2 => B1 =/=Bool B2
-  rule I1 != I2 => I1 =/=Int I2
+  rule I1 != I2 => I1 =/=Int  I2
 
   rule I1 >= I2 => I1 >=Int I2
-  rule I1 > I2 => I1 >Int I2
+  rule I1 >  I2 => I1 >Int  I2
   rule I1 <= I2 => I1 <=Int I2
-  rule I1 < I2 => I1 <Int I2
+  rule I1 <  I2 => I1 <Int  I2
+```
 
-  rule if ( true ) E1 else _ => E1
-  rule if ( false ) _ else E2 => E2
+## Declarations and Environment
 
-  rule while ( C ) E => if ( C ) { E ; while ( C ) E } else ()
+We first define a helper function that is `true` when its argument exists in
+either the local or global environment. Note that we don't look up function
+names; this is fine for this language because functions can't be stored in
+variables.
+```k
+  syntax Bool ::= inScope(Id) [function]
+  rule
+    [[ inScope(X) => X in_keys(E) orBool X in_keys(G) ]]
+    <env> E </env>
+    <globals> G </globals>
+```
 
-  syntax List ::= paramNames(Params) [function]
-
-  rule paramNames(.Params) => .List
-  rule paramNames(X , PS) => ListItem(X) paramNames(PS)
+Global and local variable declarations are distinguished syntactically by the
+auxiliary semicolon at global scope (see the `Decl` syntax), but both behave
+similarly over their respective environments.
+```k
+  rule
+    <k> let X = V:Value ; => . ...</k>
+    <globals> G => G [ X <- V ] </globals>
+    requires notBool inScope(X)
 
   rule
-    <k> #balance(Addr) => BM [ Addr ] ...</k>
-    <balances> BM </balances>
-    requires Addr in_keys(BM)
-  rule #balance(_) => 0 [owise]
+    <k> let X = V:Value => V ...</k>
+    <env> E => E [ X <- V ] </env>
+    requires notBool inScope(X)
+```
 
-  syntax KItem ::= #setBalance(addr: Int, balance: Int)
+Writes to the environments are similar, but require the key to exist in that
+environment, rather than it not to exist in either:
+```k
   rule
-    <k> #setBalance(Addr, Balance) => Balance ...</k>
-    <balances> BM => BM [ Addr <- Balance ] </balances>
-
-  rule #send(0, _) => 0
+    <k> X = V:Value => V ...</k>
+    <env> E => E [ X <- V ] </env>
+    requires X in_keys(E)
 
   rule
-    <k>
-      #send(Addr:Int, Amount) => #setBalance(Addr, maxInt(B +Int Amount, 0))
-      ...
-    </k>
-    <balances> Addr |-> B ...</balances>
-    requires Addr =/=Int 0
+    <k> X = V:Value => V ...</k>
+    <globals> G => G [ X <- V ] </globals>
+    requires X in_keys(G)
+```
 
-  rule #send(Addr:Int, Amount) => #setBalance(Addr, maxInt(Amount, 0))
-    [owise]
-    
+Looking up a variable is again similar:
+```k
+  rule
+    <k> X:Id => V ...</k>
+    <env> X |-> V ...</env>
 
+  rule
+    <k> X:Id => V ...</k>
+    <globals> X |-> V ...</globals>
+```
+
+Function declarations use a helper function to unpack a syntactic list of
+parameter names into a hooked (native) K list of identifiers. When we see a
+function declaration, we add a new child cell to the `<functions>` cell with the
+`.Bag => ...` rewrite. K's ability to stash the whole function body in the
+configuration makes it easy to later implement call and return:
+```k
   rule
     <k> fn X (PS) Body => . ...</k>
     <functions>
@@ -231,11 +296,60 @@ module SPLS
       ...
     </functions>
 
-  rule
-    <k> let X = V ; => . ...</k>
-    <globals> GS => GS [ X <- V ] </globals>
-    requires notBool inScope(X)
+  syntax List ::= paramNames(Params) [function]
+  rule paramNames(.Params) => .List
+  rule paramNames(X , PS) => ListItem(X) paramNames(PS)
+```
 
+Additionally, we need to unpack the syntactic list of declarations that makes up
+a program:
+```k
+  rule D:Decl DS => D ~> DS
+  rule .Decls => .K
+```
+
+## Control Flow
+
+### Conditionals and Loops
+
+Conditional expressions rewrite to either of their branches, intuitively:
+```k
+  rule if ( true  ) E1 else _  => E1
+  rule if ( false ) _  else E2 => E2
+```
+
+Loops take advantage of non-strict evaluation to repeat their condition checks
+in the desugared right-hand side: `C` is an expression, rather than a value, so
+we can reuse it when the next iteration is checked:
+```k
+  rule
+    while ( C ) E
+    => if ( C ) { 
+        E ; 
+        while ( C ) E 
+       } else ()
+```
+
+We expand out the syntactic list that makes up a block:
+```k
+  syntax K ::= expand(Exprs) [function]
+  rule expand(.Exprs) => .K
+  rule expand(E ; ES) => E ~> expand(ES)
+
+  rule { ES } => expand(ES)
+```
+
+### Call and Return
+
+To call a function, we need to make sure the call has the correct number of
+arguments, then bind those arguments to the parameters from the function's
+declaration in a new environment. Then, we set the function's body as the next
+computation, and save the current environment and computation in a stack frame.
+
+To make sure that arguments are evaluated in the _current_ environment before we
+stash it on the stack, we store the argument bindings in the `<args>` cell, then
+overwrite the environment when we're done binding arguments.
+```k
   syntax KItem ::= bind(args: Args, names: List)
                  | bindArg(arg: Expr, name: Id) [strict(1)]
 
@@ -249,75 +363,110 @@ module SPLS
   rule
     <k> bindArg(V:Value, X) => . ...</k>
     <args> E => E [ X <- V ] </args>
+```
+
+Note the use of K's "configuration completion" here: the compiler can infer that
+the three `<function-*>` cells belong to a parent `<function>` cell, and so we
+don't need to mention the parent.
+```k
+  syntax KItem ::= frame(K)
 
   rule
     <k> (X (AS) ~> Rest) => bind(AS, PS) ~> Body </k>
     <fstack> .List => ListItem(frame(Rest)) ...</fstack>
-    <stack> .List => ListItem(E) ...</stack>
+    <stack>  .List => ListItem(E)           ...</stack>
     <env> E </env>
-    <function-id> X </function-id>
-    <function-params> PS </function-params>
-    <function-body> Body </function-body>
+    <function-id>     X    </function-id>
+    <function-params> PS   </function-params>
+    <function-body>   Body </function-body>
+```
 
-  syntax Bool ::= inScope(Id) [function]
-  rule [[ inScope(X) => true ]]
-    <env> E </env>
-    <globals> GS </globals>
-    requires X in_keys(E)
-      orBool X in_keys(GS)
-  rule inScope(_) => false [owise]
+We can return from a function in two ways: early, with the `return` keyword, or
+by having a function's body evaluate down to a single value in the `<k>` cell.
+These cases are treated identically once we have the value to be returned:
+```k
+  syntax KItem ::= #return(Value)
 
-  rule
-    <k> let X = V:Value => V ...</k>
-    <env> E => E [ X <- V ] </env>
-    requires notBool inScope(X)
+  rule <k> V               => #return(V) </k>
+  rule <k> (return V ~> _) => #return(V) </k>
 
   rule
-    <k> X = V:Value => V ...</k>
-    <env> E => E [ X <- V ] </env>
-    requires X in_keys(E)
-
-  rule
-    <k> X = V:Value => V ...</k>
-    <globals> G => G [ X <- V ] </globals>
-    requires X in_keys(G)
-
-  syntax K ::= expand(Exprs) [function]
-  rule expand(.Exprs) => .K
-  rule expand(E ; ES) => E ~> expand(ES)
-
-  rule { ES } => expand(ES)
-
-  rule
-    <k> V:Value => V ~> F </k>
+    <k> #return(V) => V ~> F </k>
     <fstack> ListItem(frame(F)) => .List ...</fstack>
     <stack> ListItem(E) => .List ...</stack>
     <env> _ => E </env>
+```
 
-  rule
-    <k> (return V:Value ~> _) => V ~> F </k>
-    <fstack> ListItem(frame(F)) => .List ...</fstack>
-    <stack> ListItem(E) => .List ...</stack>
-    <env> _ => E </env>
+## Program
 
-  rule
-    <k> _:Value => .K ...</k>
-    [owise]
+If we have a value left at the top of the `<k>` cell, but computations left to
+do, we just discard it:
+```k
+  rule _:Value => . [owise]
+```
 
-  rule
-    <k> X:Id => V ...</k>
-    <env> X |-> V ...</env>
-
-  rule
-    <k> X:Id => V ...</k>
-    <globals> X |-> V ...</globals>
-
+If there's an integer left at program exit, set the return code appropriately:
+```k
   rule
     <k> (I:Int ~> exit()) => . </k>
     <exit-code> _ => I </exit-code>
+```
 
+## Account Operations
+
+The internal `#setBalance` operation doesn't check its argument; it just updates
+the balance table:
+```k
+  syntax KItem ::= #setBalance(addr: Int, balance: Int)
+  rule
+    <k> #setBalance(Addr, Balance) => Balance ...</k>
+    <balances> BM => BM [ Addr <- Balance ] </balances>
+```
+
+Accounts not in the balance table have `0` balance by default:
+```k
+  rule
+    <k> #balance(Addr) => BM [ Addr ] ...</k>
+    <balances> BM </balances>
+    requires Addr in_keys(BM)
+  rule #balance(_) => 0 [owise]
+```
+
+The `#send` operation is exposed to user programs, and so is checked. The zero
+address is a sink, and so will accept any argument without checking:
+```k
+  rule #send(0, A) => A
+```
+
+If an account has an existing balance, we set their balance to the adjusted
+balance, ensuring it never goes below 0:
+```k
+  rule
+    <k>
+      #send(Addr:Int, Amount) => #setBalance(Addr, maxInt(B +Int Amount, 0))
+      ...
+    </k>
+    <balances> Addr |-> B ...</balances>
+    requires Addr =/=Int 0
+```
+
+If not, we behave similarly:
+```k
+  rule #send(Addr:Int, Amount) => #setBalance(Addr, maxInt(Amount, 0))
+  [owise]
+```
+
+
+## Boilerplate
+
+This function is a hook that guides the compiler's generation of heating and
+cooling rules for expressions.
+```k
   syntax Bool ::= isKResult(Expr) [symbol, function]
-  rule isKResult(_::Value) => true
-  rule isKResult(_::Expr) => false [owise]
+  rule isKResult(_:Value) => true
+  rule isKResult(_) => false [owise]
+```
+
+```k
 endmodule
 ```
