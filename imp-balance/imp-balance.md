@@ -12,7 +12,7 @@ specifies how user programs should be parsed. Note that this syntax will be
 extended in the main module when defining the rewrite system for the language;
 these syntax extensions are not accessible by users of the language.
 ```k
-module SPLS-SYNTAX
+module IMP-BALANCE-SYNTAX
   imports ID-SYNTAX
   imports UNSIGNED-INT-SYNTAX
   imports BOOL
@@ -137,8 +137,8 @@ running program:
 * An environment mapping names to values
 * Account balances (an example of "outside world") interaction
 ```k
-module SPLS-CONFIGURATION
-  imports SPLS-SYNTAX
+module IMP-BALANCE-CONFIGURATION
+  imports IMP-BALANCE-SYNTAX
   imports LIST
   imports MAP
 ```
@@ -183,8 +183,8 @@ endmodule
 This module defines the run-time semantics of programs in our language by
 providing rewrite rules over the many-sorted grammar described above.
 ```k
-module SPLS
-  imports SPLS-CONFIGURATION
+module IMP-BALANCE
+  imports IMP-BALANCE-CONFIGURATION
   imports INT
   imports BOOL
   imports MAP
