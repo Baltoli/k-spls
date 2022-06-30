@@ -1,5 +1,6 @@
 DEPS_DIR      := deps
 BUILD_DIR     := .build
+SEMANTICS_DIR := .build/semantics
 BUILD_LOCAL   := $(abspath $(BUILD_DIR)/local)
 LOCAL_BIN     := $(BUILD_LOCAL)/bin
 
@@ -15,12 +16,13 @@ DEST_DIR	:= $(CURDIR)/$(BUILD_DIR)
 K_BIN		:= $(BUILD_DIR)$(INSTALL_LIB)/kframework/bin
 KOMPILE		:= $(K_BIN)/kompile
 KRUN		:= $(K_BIN)/krun
+KPROVE		:= $(K_BIN)/kprove
 
 KOMPILE_FLAGS	:=
 
 .PHONY: deps all
 
-all: imp-llvm imp-haskell slide-one slide-two pcl
+all: imp-llvm imp-haskell imp-verification slide-one slide-two pcl
 
 deps: $(KOMPILE)
 
@@ -28,6 +30,9 @@ $(BUILD_DIR):
 	mkdir -p $@
 
 clean:
+	rm -rf $(SEMANTICS_DIR)
+
+distclean:
 	rm -rf $(BUILD_DIR)
 
 K_MVN_ARGS :=
@@ -48,41 +53,50 @@ $(KOMPILE): $(BUILD_DIR)
 	     PREFIX=$(INSTALL_LIB)/kframework \
 	     package/package
 
-imp-llvm: imp-balance/imp-balance.md $(KOMPILE)
+imp-llvm: imp-balance/imp-balance.md
 	$(KOMPILE) $(KOMPILE_FLAGS) $< \
-	  --output-definition $(BUILD_DIR)/$@ \
+	  --output-definition $(SEMANTICS_DIR)/$@ \
 	  --backend llvm
 
-imp-haskell: imp-balance/imp-balance.md $(KOMPILE)
+imp-haskell: imp-balance/imp-balance.md
 	$(KOMPILE) $(KOMPILE_FLAGS) $< \
-	  --output-definition $(BUILD_DIR)/$@ \
+	  --output-definition $(SEMANTICS_DIR)/$@ \
 	  --backend haskell
 
-slide-one: slides/one.k $(KOMPILE)
+imp-verification: imp-balance/verification.k
 	$(KOMPILE) $(KOMPILE_FLAGS) $< \
-	  --output-definition $(BUILD_DIR)/$@ \
+	  --output-definition $(SEMANTICS_DIR)/$@ \
+	  --backend haskell \
+	  --syntax-module VERIFICATION
+
+slide-one: slides/one.k
+	$(KOMPILE) $(KOMPILE_FLAGS) $< \
+	  --output-definition $(SEMANTICS_DIR)/$@ \
 	  --backend llvm \
 	  --syntax-module ONE
 
-slide-two: slides/two.k $(KOMPILE)
+slide-two: slides/two.k
 	$(KOMPILE) $(KOMPILE_FLAGS) $< \
-	  --output-definition $(BUILD_DIR)/$@ \
+	  --output-definition $(SEMANTICS_DIR)/$@ \
 	  --backend llvm \
 	  --syntax-module TWO
 
-pcl: pcl/pcl.k $(KOMPILE)
+pcl: pcl/pcl.k
 	$(KOMPILE) $(KOMPILE_FLAGS) $< \
-	  --output-definition $(BUILD_DIR)/$@ \
+	  --output-definition $(SEMANTICS_DIR)/$@ \
 	  --backend llvm
 
 examples/%.imp.run:
-	$(KRUN) --definition $(BUILD_DIR)/imp-llvm $(patsubst %.run,$@)
+	$(KRUN) --definition $(SEMANTICS_DIR)/imp-llvm $(patsubst %.run,$@)
 
 examples/%.pcl.run:
-	$(KRUN) --definition $(BUILD_DIR)/pcl $(patsubst %.run,%,$@)
+	$(KRUN) --definition $(SEMANTICS_DIR)/pcl $(patsubst %.run,%,$@)
 
 examples/%.one.run:
-	$(KRUN) --definition $(BUILD_DIR)/slide-one $(patsubst %.run,%,$@)
+	$(KRUN) --definition $(SEMANTICS_DIR)/slide-one $(patsubst %.run,%,$@)
 
 examples/%.two.run:
-	$(KRUN) --definition $(BUILD_DIR)/slide-two $(patsubst %.run,%,$@)
+	$(KRUN) --definition $(SEMANTICS_DIR)/slide-two $(patsubst %.run,%,$@)
+
+examples/%.prove:
+	$(KPROVE) --definition $(SEMANTICS_DIR)/imp-verification $(patsubst %.prove,%,$@)
