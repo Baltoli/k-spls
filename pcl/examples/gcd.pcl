@@ -1,0 +1,38 @@
+external @stdio;
+
+fresh ModParamN {
+fresh ModParamM {
+fresh ModParamC {
+fresh GCDParamA {
+fresh GCDParamB {
+fresh GCDParamC {
+  in @stdio(X) .
+  in @stdio(Y) .
+  ((
+    !(
+      in ModParamN ( Num ) .
+      in ModParamM ( Mod ) .
+      in ModParamC ( Cont ) .
+      out Cont ( Num - (( Num / Mod ) * Mod) ) )
+    |
+      !(
+      in GCDParamA (A) .
+      in GCDParamB (B) .
+      in GCDParamC ( Cont ) .
+      [A = 0] {
+        out Cont (B) . stop
+      }.
+      [B = 0] {
+        out Cont (A) . stop
+      }.
+      out GCDParamA (B) .
+      out ModParamN (A) .
+      out ModParamM (B) .
+      out ModParamC ( GCDParamB ) .
+      out GCDParamC ( Cont ) )
+    ) |
+      out GCDParamA (X) .
+      out GCDParamB (Y) .
+      out GCDParamC ( @stdio )
+  )
+}}}}}}

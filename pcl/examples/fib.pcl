@@ -1,0 +1,28 @@
+external @stdio;
+
+fresh FibParamN {
+fresh FibParamA {
+fresh FibParamB {
+fresh FibParamC {
+  in @stdio (X) .
+  (
+    !(
+      in FibParamN (N) .
+      in FibParamA (A) .
+      in FibParamB (B) .
+      in FibParamC ( Cont ) .
+      [N = 0] {
+        out Cont (A) . stop
+      }.
+      out FibParamN (N - 1) .
+      out FibParamA (A + B) .
+      out FibParamB (A) .
+      out FibParamC ( Cont )
+    )
+    |
+      out FibParamN (X) .
+      out FibParamA (0) .
+      out FibParamB (1) .
+      out FibParamC ( @stdio )
+  )
+}}}}
