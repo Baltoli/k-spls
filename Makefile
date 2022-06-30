@@ -12,16 +12,22 @@ INSTALL_INCLUDE ?= $(INSTALL_LIB)/include
 
 DEST_DIR	:= $(CURDIR)/$(BUILD_DIR)
 
-.PHONY: deps k-deps
+K_BIN		:= $(BUILD_DIR)$(INSTALL_LIB)/kframework/bin
+KOMPILE		:= $(K_BIN)/kompile
 
-all: deps
+KOMPILE_FLAGS	:=
+
+.PHONY: deps all
+
+all: imp-llvm imp-haskell slide-one slide-two pcl
+
+deps: $(KOMPILE)
+
+$(BUILD_DIR):
+	mkdir -p $@
 
 clean:
-
-distclean:
 	rm -rf $(BUILD_DIR)
-
-deps: k-deps
 
 K_MVN_ARGS :=
 
@@ -31,12 +37,37 @@ else
     K_BUILD_TYPE := Debug
 endif
 
-k-deps:
+$(KOMPILE): $(BUILD_DIR)
 	cd $(K_SUBMODULE) \
 	  && mvn --batch-mode package -DskipTests \
 	      -Dllvm.backend.prefix=$(INSTALL_LIB)/kframework \
-	      -Dllvm.backend.destdir=$(CURDIR)/$(BUILD_DIR) \
+	      -Dllvm.backend.destdir=$(DEST_DIR) \
 	      -Dproject.build.type=$(K_BUILD_TYPE) $(K_MVN_ARGS) \
-	  && DESTDIR=$(CURDIR)/$(BUILD_DIR) \
+	  && DESTDIR=$(DEST_DIR) \
 	     PREFIX=$(INSTALL_LIB)/kframework \
 	     package/package
+
+imp-llvm: imp-balance/imp-balance.md $(KOMPILE)
+	$(KOMPILE) $(KOMPILE_FLAGS) $< \
+	  --output-definition $(BUILD_DIR)/$@ \
+	  --backend llvm
+
+imp-haskell: imp-balance/imp-balance.md $(KOMPILE)
+	$(KOMPILE) $(KOMPILE_FLAGS) $< \
+	  --output-definition $(BUILD_DIR)/$@ \
+	  --backend haskell
+
+slide-one: slides/one.k $(KOMPILE)
+	$(KOMPILE) $(KOMPILE_FLAGS) $< \
+	  --output-definition $(BUILD_DIR)/$@ \
+	  --backend llvm
+
+slide-two: slides/two.k $(KOMPILE)
+	$(KOMPILE) $(KOMPILE_FLAGS) $< \
+	  --output-definition $(BUILD_DIR)/$@ \
+	  --backend llvm
+
+pcl: pcl/pcl.k $(KOMPILE)
+	$(KOMPILE) $(KOMPILE_FLAGS) $< \
+	  --output-definition $(BUILD_DIR)/$@ \
+	  --backend llvm
