@@ -7,13 +7,14 @@ K_SUBMODULE := $(DEPS_DIR)/k
 
 INSTALL_PREFIX  := /usr
 INSTALL_BIN     ?= $(INSTALL_PREFIX)/bin
-INSTALL_LIB     ?= $(INSTALL_PREFIX)/lib/k-spls
+INSTALL_LIB     ?= $(INSTALL_PREFIX)/lib
 INSTALL_INCLUDE ?= $(INSTALL_LIB)/include
 
 DEST_DIR	:= $(CURDIR)/$(BUILD_DIR)
 
 K_BIN		:= $(BUILD_DIR)$(INSTALL_LIB)/kframework/bin
 KOMPILE		:= $(K_BIN)/kompile
+KRUN		:= $(K_BIN)/krun
 
 KOMPILE_FLAGS	:=
 
@@ -60,14 +61,28 @@ imp-haskell: imp-balance/imp-balance.md $(KOMPILE)
 slide-one: slides/one.k $(KOMPILE)
 	$(KOMPILE) $(KOMPILE_FLAGS) $< \
 	  --output-definition $(BUILD_DIR)/$@ \
-	  --backend llvm
+	  --backend llvm \
+	  --syntax-module ONE
 
 slide-two: slides/two.k $(KOMPILE)
 	$(KOMPILE) $(KOMPILE_FLAGS) $< \
 	  --output-definition $(BUILD_DIR)/$@ \
-	  --backend llvm
+	  --backend llvm \
+	  --syntax-module TWO
 
 pcl: pcl/pcl.k $(KOMPILE)
 	$(KOMPILE) $(KOMPILE_FLAGS) $< \
 	  --output-definition $(BUILD_DIR)/$@ \
 	  --backend llvm
+
+examples/%.imp.run:
+	$(KRUN) --definition $(BUILD_DIR)/imp-llvm $(patsubst %.run,$@)
+
+examples/%.pcl.run:
+	$(KRUN) --definition $(BUILD_DIR)/pcl $(patsubst %.run,%,$@)
+
+examples/%.one.run:
+	$(KRUN) --definition $(BUILD_DIR)/slide-one $(patsubst %.run,%,$@)
+
+examples/%.two.run:
+	$(KRUN) --definition $(BUILD_DIR)/slide-two $(patsubst %.run,%,$@)
