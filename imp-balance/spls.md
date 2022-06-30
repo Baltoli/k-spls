@@ -65,13 +65,11 @@ Boolean expressions are treated similarly:
                     | Expr "<"  Expr [lt,   strict, non-assoc]
 ```
 
-Later, we want to allow global variable declarations that are separate from the
-expression grammar. The `prefer` attribute here allows for parsing ambiguities
-to be resolved. We parse `let x = 2 + 2` as `let x = (2 + 2)` rather than `(let
-x = 2) + 2` by preferring the top-level `let` production:
+The `prefer` attribute here allows for parsing ambiguities to be resolved. We
+parse `let x = 2 + 2` as `let x = (2 + 2)` rather than `(let x = 2) + 2` by
+preferring the top-level `let` production:
 ```k
-  syntax VarDecl  ::= "let" Id "=" Expr [let,    strict(2), prefer]
-  syntax Expr     ::= VarDecl
+  syntax Expr     ::= "let" Id "=" Expr [let,    strict(2), prefer]
                     | Id "=" Expr       [assign, strict(2)]
 ```
 
@@ -114,14 +112,10 @@ lists:
   syntax Args     ::= List{Expr, ","}
 ```
 
-The top-level program structure in this language is a sequence of declarations
-(either functions or variables):
+The top-level program structure in this language is a sequence of declarations:
 ```k
   syntax Decl     ::= FunDecl
-                    | VarDecl ";"
-
   syntax Decls    ::= NeList{Decl, ""} [prefer]
-
   syntax Pgm      ::= Decls
 ```
 
@@ -140,7 +134,7 @@ The configuration for this language contains the state required to represent a
 running program:
 * The current computation in the `<k>` cell
 * Call and environment stacks
-* An environment mapping names to values, and a set of global variable mappings
+* An environment mapping names to values
 * Account balances (an example of "outside world") interaction
 ```k
 module SPLS-CONFIGURATION
@@ -173,7 +167,6 @@ user's program with a call to the `main` function:
     <stack>     .List </stack>
     <env>       .Map  </env>
     <args>      .Map  </args>
-    <globals>   .Map  </globals>
     <balances>  .Map  </balances>
     <functions>
       <function multiplicity="*" type="Map">
@@ -225,35 +218,15 @@ immediately on being constructed, and cannot be pattern-matched on.
 
 ## Declarations and Environment
 
-We first define a helper function that is `true` when its argument exists in
-either the local or global environment. Note that we don't look up function
-names; this is fine for this language because functions can't be stored in
-variables.
+Local variable declarations do not allow us to redeclare variables:
 ```k
-  syntax Bool ::= inScope(Id) [function]
-  rule
-    [[ inScope(X) => X in_keys(E) orBool X in_keys(G) ]]
-    <env> E </env>
-    <globals> G </globals>
-```
-
-Global and local variable declarations are distinguished syntactically by the
-auxiliary semicolon at global scope (see the `Decl` syntax), but both behave
-similarly over their respective environments.
-```k
-  rule
-    <k> let X = V:Value ; => . ...</k>
-    <globals> G => G [ X <- V ] </globals>
-    requires notBool inScope(X)
-
   rule
     <k> let X = V:Value => V ...</k>
     <env> E => E [ X <- V ] </env>
-    requires notBool inScope(X)
+    requires notBool X in_keys(E)
 ```
 
-Writes to the environments are similar, but require the key to exist in that
-environment, rather than it not to exist in either:
+Writes to the environment and variable lookups are similar:
 ```k
   rule
     <k> X = V:Value => V ...</k>
@@ -261,20 +234,8 @@ environment, rather than it not to exist in either:
     requires X in_keys(E)
 
   rule
-    <k> X = V:Value => V ...</k>
-    <globals> G => G [ X <- V ] </globals>
-    requires X in_keys(G)
-```
-
-Looking up a variable is again similar:
-```k
-  rule
     <k> X:Id => V ...</k>
     <env> X |-> V ...</env>
-
-  rule
-    <k> X:Id => V ...</k>
-    <globals> X |-> V ...</globals>
 ```
 
 Function declarations use a helper function to unpack a syntactic list of
