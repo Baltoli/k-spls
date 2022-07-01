@@ -1,5 +1,5 @@
 This file is a literate K definition for a simple imperative programming
-language. This language is strongly and dynamically typed, and does not have a
+language. This language is dynamically typed, and does not have a
 distinction between statements and expressions.
 
 Several elements of its design are made for simplicity of code, rather than to
