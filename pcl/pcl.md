@@ -1,3 +1,12 @@
+# PCL
+
+This file is a literate K implementation of PCL, a language based on the
+pi calculus. PCL supports basic arithmetic and IO on top of the thread
+coordination of the underlying calculus.
+
+## Syntax
+
+```k
 module PCL-SYNTAX
   imports BOOL-SYNTAX
   imports INT-SYNTAX
@@ -33,7 +42,11 @@ module PCL-SYNTAX
 
   syntax Program ::= Externals Process
 endmodule
+```
 
+## Configuration
+
+```k
 module PCL-CONFIGURATION
   imports INT
   imports SET
@@ -52,7 +65,11 @@ module PCL-CONFIGURATION
     <input stream="stdin"> .List </input>
     <output stream="stdout"> .List </output>
 endmodule
+```
 
+## IO Hooks
+
+```k
 module PCL-HOOKS
   imports PCL-CONFIGURATION
   imports PCL-SYNTAX
@@ -88,7 +105,11 @@ module PCL-HOOKS
     <k> #send(@stdio, V:Int) => . ...</k>
     <output>... .List => ListItem(Int2String(V) +String "\n") </output>
 endmodule
+```
 
+## Semantics
+
+```k
 module PCL
   imports PCL-CONFIGURATION
   imports PCL-SYNTAX
@@ -208,3 +229,4 @@ module PCL
   rule X:Int - Y:Int  => X -Int Y
 
 endmodule
+```

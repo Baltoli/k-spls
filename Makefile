@@ -89,7 +89,7 @@ slide-two: slides/two.k
 	  --syntax-module TWO
 
 .PHONY: pcl
-pcl: pcl/pcl.k
+pcl: pcl/pcl.md
 	$(KOMPILE) $(KOMPILE_FLAGS) $< \
 	  --output-definition $(SEMANTICS_DIR)/$@ \
 	  --backend llvm
