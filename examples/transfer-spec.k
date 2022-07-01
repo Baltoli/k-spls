@@ -34,6 +34,6 @@ module TRANSFER-SPEC
 
   requires  B1 >=Int 0
     andBool B2 >=Int 0
-    andBool N   >Int 0
+    andBool N  >=Int 0
 
 endmodule
