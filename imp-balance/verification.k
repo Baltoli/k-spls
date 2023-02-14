@@ -8,6 +8,8 @@ module VERIFICATION
               | "to"        [token]
               | "amount"    [token]
               | "transfer"  [token]
+              | "$s"        [token]
+              | "$n"        [token]
 
   /* Lemmas for live demo, if time */
   /* rule A +Int (0 -Int B) => A -Int B */
