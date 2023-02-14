@@ -120,8 +120,8 @@ module PCL
   imports SET
   imports STRING
 
-  syntax Channel ::= StringToChannel(String) [function, functional, hook(STRING.string2token)]
-                   | #freshChannel(Int)      [function, functional, freshGenerator]
+  syntax Channel ::= StringToChannel(String) [function, total, hook(STRING.string2token)]
+                   | #freshChannel(Int)      [function, total, freshGenerator]
   rule #freshChannel(I) => StringToChannel("#c_" +String Int2String(I))
 
   rule isKResult(_:Channel) => true
